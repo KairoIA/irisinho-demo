@@ -64,9 +64,7 @@ export class Guia {
   }
   // Alto del escenario de Irisinho: lo justo para que quepan él y su bocadillo al lado (el bocadillo manda si es alto).
   altoEscenario(texto, ancho) {
-    const t = this.ia.t;
-    const h = texto && ancho ? this.ia.medirGlobo(texto, ancho) : 0;
-    return Math.round(Math.max(t * 0.9, h + 12));
+    return this.ia.altoHueco(texto, ancho);
   }
 
   // ------------------------------------------------------------------ navegación
@@ -340,7 +338,7 @@ export class Guia {
     const texto = GLOBO[this.paso];
     if (st && texto) {
       const alto = this.altoEscenario(texto, st.getBoundingClientRect().width);
-      if (alto !== parseFloat(st.style.height)) ponerEscenario(ancla, alto, { junto, fijar, inmediato });
+      if (alto !== st.altoObjetivo) ponerEscenario(ancla, alto, { junto, fijar, inmediato });
     }
     caja.querySelector(".cerrar").addEventListener("click", () => this.pausar());
     for (const b of caja.querySelectorAll("[data-b]")) b.addEventListener("click", () => c.botones[Number(b.dataset.b)].accion());

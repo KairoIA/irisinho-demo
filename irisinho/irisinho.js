@@ -9,7 +9,7 @@
 // La IA solo se usa en el chat, con correo verificado.
 import * as pdfjs from "../vendor/pdfjs/pdf.min.mjs";
 import { pedirPrecio, sinServidor } from "../js/calculadora.js";
-import { CAMPOS_CON_NOTA, escalaPagina, explicar, temaDe } from "./explicaciones.js";
+import { CAMPOS_CON_NOTA, escalaPagina, explicar, SUBIR_COLOR, temaDe } from "./explicaciones.js";
 import { Guia } from "./guia.js";
 import { CSS_MUNECO, Muneco } from "./muneco.js";
 import { desplazarSuave } from "./suave.js";
@@ -433,7 +433,8 @@ class IrisinhoAsistente extends HTMLElement {
     const alto = window.innerHeight;
     const barra = this.carritoAbierto() ? 0 : this.barra();
     const ancho = document.documentElement.clientWidth || window.innerWidth;
-    if (esMovil()) return { x: ancho - t - 8, y: alto - (barra ? barra - 18 : 14) - t };
+    // Justo encima de la barra del precio, sin pisarla (Javi, 25-oct: «que no se pise nada»).
+    if (esMovil()) return { x: ancho - t - 8, y: alto - barra - t - 8 };
     return { x: ancho - t - 30, y: alto - barra - t - 26 };
   }
   ancla(nombre) {
@@ -473,13 +474,13 @@ class IrisinhoAsistente extends HTMLElement {
     const r = hueco.getBoundingClientRect();
     if (!r.width) return null;
     if (this.altoPedido?.ancho !== Math.round(r.width)) {
-      const alto = Math.round(Math.max(this.t * 0.9, this.medirGlobo(TEXTO_PEDIDO, r.width) + 12));
+      const alto = this.altoHueco(TEXTO_PEDIDO, r.width);
       this.altoPedido = { ancho: Math.round(r.width), alto };
       requestAnimationFrame(() => { hueco.style.height = alto + "px"; });
     }
     const alto = this.altoPedido.alto;
     this.escenario = { left: r.left, right: r.right, top: r.top, alto };
-    return { x: r.right - this.t + 4, y: r.top - this.t * 0.06, posado: true, pedido: true, marco: caja };
+    return { x: r.right - this.t + 4, y: this.yHueco(r.top), posado: true, pedido: true, marco: caja };
   }
   quitarHuecoPedido() {
     const h = this.huecoPedido;
@@ -497,7 +498,7 @@ class IrisinhoAsistente extends HTMLElement {
     const r = st?.getBoundingClientRect();
     if (!r?.width) return null;
     const t = this.t;
-    const alto = parseFloat(st.style.height) || r.height || t * 0.9;
+    const alto = st.altoObjetivo || parseFloat(st.style.height) || r.height || t * 0.9;
     const cinta = document.querySelector(".demo-cinta")?.getBoundingClientRect().bottom || 0;
     const abajo = window.innerHeight - (this.carritoAbierto() ? 0 : this.barra());
     this.escenario = { left: r.left, right: r.right, top: r.top, alto };
@@ -505,8 +506,8 @@ class IrisinhoAsistente extends HTMLElement {
     // Mientras la página se desplaza hacia un paso nuevo, va directo a su sitio (sin decir «seguimos aquí abajo»).
     const enCamino = Date.now() < (this.enCaminoHasta || 0);
     const ventana = st.closest(".carrito");
-    if (ventana) { this.quitarHuecoPedido(); return { x: r.right - t + 4, y: r.top - t * 0.06, posado: true, marco: ventana }; }
-    if (enCamino || (medio > cinta && medio < abajo)) return { x: r.right - t + 4, y: r.top - t * 0.06, posado: true, pagina: true };
+    if (ventana) { this.quitarHuecoPedido(); return { x: r.right - t + 4, y: this.yHueco(r.top), posado: true, marco: ventana }; }
+    if (enCamino || (medio > cinta && medio < abajo)) return { x: r.right - t + 4, y: this.yHueco(r.top), posado: true, pagina: true };
     // El escenario se fue por arriba pero el bloque o su tarjeta siguen a la vista: se queda pegado arriba, acompañando
     // (sin bocadillo, para no tapar las opciones).
     const tar = tarjetaPuesta()?.caja.getBoundingClientRect();
@@ -1008,11 +1009,21 @@ class IrisinhoAsistente extends HTMLElement {
     const h = g.offsetHeight;
     const cinta = document.querySelector(".demo-cinta")?.getBoundingClientRect().bottom || 0;
     // En el escenario: a la izquierda de Irisinho, centrado en el hueco que se abre encima del bloque.
-    let top = e ? y + t * 0.06 + (e.alto - h) / 2 : y + t * 0.3 - h / 2;
+    let top = e ? y + t * 0.06 - 4 + (e.alto - h) / 2 : y + t * 0.3 - h / 2;
     top = Math.max(cinta + 4, Math.min(top, window.innerHeight - h - 6));
     g.style.left = Math.max(e ? e.left : 8, x - w - 4) + "px";
     g.style.top = top + "px";
     g.style.setProperty("--cola", Math.max(12, Math.min(h - 12, y + t * 0.38 - top)) + "px");
+  }
+  // Hueco de Irisinho: cabe el robot (su cuerpo ocupa del 6 % al 90 % de su caja) con aire arriba y abajo, y el bocadillo
+  // con 10 px por cada lado; así no toca ni el bloque de encima ni el título de debajo.
+  altoHueco(texto, ancho) {
+    const h = texto && ancho ? this.medirGlobo(texto, ancho) : 0;
+    return Math.round(Math.max(this.t * 0.84 + 12, h + 20));
+  }
+  // Dónde va el robot dentro de su hueco (arriba del hueco = r.top): con 4 px de aire sobre su cabeza.
+  yHueco(top) {
+    return top + 4 - this.t * 0.06;
   }
   // Alto que tendría el bocadillo con ese texto en un hueco de ese ancho (mismo cálculo de ancho que colocarGlobo).
   medirGlobo(texto, anchoHueco) {
@@ -1394,13 +1405,15 @@ class IrisinhoAsistente extends HTMLElement {
         for (const a of archivos) {
           const r = an(a);
           if (!r || r.paginasFoto == null || r.escaneado || r.paginasFoto < Math.max(3, r.paginas * 0.15)) continue;
-          const cmyk = await this.precioCon({ printType: "color" });
-          if (!cmyk) return null;
+          // Primer escalón del color (SUBIR_COLOR): el Lowcost.
+          const destino = SUBIR_COLOR["blanco-negro"];
+          const otro = await this.precioCon({ printType: destino });
+          if (!otro) return null;
           return {
             clave: "bn-fotos:" + a.id, tipo: "venta", ancla: "printType", pose: "lupa",
-            texto: `${cuantasPaginas(r)} de <b>${esc(a.nombre)}</b> tienen fotos o fondos de color. En blanco y negro saldrían en grises; <b>a color</b> lucen como en tu pantalla.`,
+            texto: `${cuantasPaginas(r)} de <b>${esc(a.nombre)}</b> tienen fotos o fondos de color. En blanco y negro saldrían en grises; con el <b>Color Lowcost</b> salen a color por muy poco más (es para envío a casa).`,
             acciones: [
-              { etiqueta: `Imprimir a color (${this.diferencia(cmyk.precio, total)})`, principal: true, accion: { tipo: "cambiar", campo: "printType", valor: "color" } },
+              { etiqueta: `Color Lowcost (desde ${this.diferencia(otro.precio, total)})`, principal: true, accion: { tipo: "cambiar", campo: "printType", valor: destino } },
               { etiqueta: "Lo quiero en B/N", cerrar: true },
             ],
             valido: (s) => s.config.printType === "blanco-negro" && s.archivos.some((x) => x.id === a.id),
@@ -1490,7 +1503,7 @@ class IrisinhoAsistente extends HTMLElement {
     const html = this.htmlConsejo(c);
     const caja = ponerTarjeta(c.ancla || "subida", html);
     if (caja) {
-      ponerEscenario(c.ancla || "subida", Math.round(this.t * 0.9));
+      ponerEscenario(c.ancla || "subida", this.altoHueco());
       this.enlazarConsejo(caja, c, false);
       this.pintarEtiqueta();
     } else if (esMovil()) {

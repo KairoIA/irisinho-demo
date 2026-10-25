@@ -124,6 +124,7 @@ export function ponerTarjeta(ancla, html, { antes = false, fijar = true } = {}) 
     const vieja = tarjeta;
     tarjeta = document.createElement("irisinho-tarjeta");
     tarjeta.style.maxWidth = dentro ? "" : getComputedStyle(el).maxWidth;
+    if (antes) tarjeta.style.marginBottom = "18px";
     const meter = () => {
       if (vieja) { vieja.recogiendo = true; recoger(vieja); }
       if (antes) el.before(tarjeta);
@@ -171,10 +172,14 @@ export function ponerEscenario(ancla, alto, { junto = false, fijar = true, inmed
   const bienPuesto = escenario?.isConnected && (junto ? escenario.nextElementSibling === ref
     : dentro ? escenario.parentElement === el && el.firstElementChild === escenario : escenario.nextElementSibling === el);
   if (bienPuesto) {
-    if (parseFloat(escenario.style.height) !== alto) {
-      if (inmediato) escenario.style.transition = "none";
-      escenario.style.height = alto + "px";
-      if (inmediato) { void escenario.offsetHeight; escenario.style.transition = "height .42s cubic-bezier(.4,0,.2,1)"; }
+    // altoObjetivo: el alto al que va (si aún no ha empezado a crecer, el fotograma de crecer usará este).
+    if (escenario.altoObjetivo !== alto) {
+      escenario.altoObjetivo = alto;
+      if (escenario.style.height !== "0px") {
+        if (inmediato) escenario.style.transition = "none";
+        escenario.style.height = alto + "px";
+        if (inmediato) { void escenario.offsetHeight; escenario.style.transition = "height .42s cubic-bezier(.4,0,.2,1)"; }
+      }
     }
     return escenario;
   }
@@ -182,6 +187,7 @@ export function ponerEscenario(ancla, alto, { junto = false, fijar = true, inmed
   nuevo.className = "irisinho-escenario";
   nuevo.setAttribute("aria-hidden", "true");
   const ya = inmediato || reducir();
+  nuevo.altoObjetivo = alto;
   Object.assign(nuevo.style, { display: "block", gridColumn: "1 / -1", width: "100%", height: ya ? alto + "px" : "0px", transition: "height .42s cubic-bezier(.4,0,.2,1)" });
   // Fuera de un bloque del configurador (la subida, la lista de archivos), tan ancho como ese elemento.
   if (junto) nuevo.style.maxWidth = ref.style.maxWidth;
@@ -196,7 +202,7 @@ export function ponerEscenario(ancla, alto, { junto = false, fijar = true, inmed
   if (fijar) cambiarSinSalto(quieto(el), meter);
   else meter();
   escenario = nuevo;
-  if (!ya) requestAnimationFrame(() => requestAnimationFrame(() => { nuevo.style.height = alto + "px"; }));
+  if (!ya) requestAnimationFrame(() => requestAnimationFrame(() => { nuevo.style.height = nuevo.altoObjetivo + "px"; }));
   return nuevo;
 }
 
@@ -222,6 +228,8 @@ export function escenarioPuesto() {
 export function verTarjeta(ancla, { arriba = 56, abajo = 0 } = {}) {
   const el = bloque(ancla);
   if (!el || !tarjetaPuesta()) return;
+  const cinta = document.querySelector(".demo-cinta")?.getBoundingClientRect().bottom || 0;
+  arriba = Math.max(arriba, cinta + 12);
   desplazarSuave(() => {
     const t = tarjetaPuesta();
     if (!t) return window.scrollY;
@@ -229,7 +237,7 @@ export function verTarjeta(ancla, { arriba = 56, abajo = 0 } = {}) {
     const rt = t.caja.getBoundingClientRect();
     const st = escenarioPuesto();
     const rs = st?.getBoundingClientRect();
-    const falta = st ? Math.max(0, (parseFloat(st.style.height) || 0) - rs.height) : 0;
+    const falta = st ? Math.max(0, (st.altoObjetivo ?? parseFloat(st.style.height) ?? 0) - rs.height) : 0;
     const top = Math.min(re.top, rt.top, rs ? rs.top : Infinity);
     const bottom = Math.max(re.bottom, rt.bottom) + falta;
     const fondo = window.innerHeight - abajo - 12;

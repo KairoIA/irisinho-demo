@@ -50,8 +50,15 @@ function hojasPorEncuadernacion() {
 
 function avisar(texto, ms = 4200) {
   const el = $("#avisoFlotante");
+  const barra = $("#confirm-bar");
+  // Siempre encima de la barra del precio, también si la barra aparece mientras se ve el aviso.
+  const colocar = () => {
+    el.style.setProperty("--abajo", (barra && !barra.hidden ? barra.getBoundingClientRect().height : 0) + "px");
+    if (!el.hidden) requestAnimationFrame(colocar);
+  };
   el.textContent = texto;
   el.hidden = false;
+  colocar();
   clearTimeout(avisar.t);
   avisar.t = setTimeout(() => (el.hidden = true), ms);
 }

@@ -98,6 +98,11 @@ const PASO = {
   "horizontal-abajo-arriba": "hacia arriba, como un calendario", "horizontal-derecha-izquierda": "como un libro apaisado",
 };
 
+// Escalera del color: qué se propone desde cada tipo de impresión, de uno en uno (Javi, 25-oct: «el B/N ofrece Lowcost
+// y el Lowcost ofrece subir; nunca del tirón a CMYK»; el Lowcost le sale más rentable a la tienda). Pendiente de que
+// Nacho lo confirme: si cambia, se toca solo esta tabla.
+export const SUBIR_COLOR = { "blanco-negro": "color-envio", "color-envio": "color", color: "color-pro" };
+
 // Devuelve {nombre, que, html, tipo: "bien"|"mejor"|"info", texto, accion?: {etiqueta, accion}, extra?: {texto, accion?}}
 // o null. «mejor» = hay algo que le irá mejor (o un error que evitar); «extra» = también podría añadir algo.
 // ctx: {estado, analisis (del archivo mayor o null), cambio (ultimoCambio), precioCon, euros, diferencia, esc, catalogo}
@@ -181,23 +186,36 @@ export async function explicar(campo, ctx) {
       const que = QUE.printType[valor];
       if (!hay) return salida(nombre, que, "info", sinPdf);
       if (colorF == null) return salida(nombre, que, "info", "Estoy mirando el color de tu PDF: en un momento te digo.");
-      const color = async (texto) => {
-        const a = await alt({ printType: "color" });
-        return a && { etiqueta: `Color${conPrecio(a)}`, accion: cambiarA("printType", "color"), texto };
+      // El siguiente escalón (SUBIR_COLOR) con su precio: {texto, accion: {etiqueta, accion}}.
+      const subir = async (texto) => {
+        const destino = SUBIR_COLOR[valor];
+        if (!destino) return null;
+        const a = await alt({ printType: destino });
+        // El precio del Lowcost depende de cuánto color lleva el archivo (lo calcula la tienda): se dice «desde».
+        const precio = destino === "color-envio" ? conPrecio(a).replace(" · ", " · desde ") : conPrecio(a);
+        return a && { texto, accion: { etiqueta: `${NOMBRE.printType[destino]}${precio}`, accion: cambiarA("printType", destino) } };
       };
       if (valor === "blanco-negro") {
-        if (fotos >= 0.15) return salida(nombre, que, "mejor", "Tu PDF tiene mucho color: en blanco y negro, las fotos y los gráficos pierden detalle y se ven apagados.", await color());
+        if (fotos >= 0.15) {
+          const s = await subir();
+          return salida(nombre, que, "mejor", "Tu PDF tiene mucho color: en blanco y negro, las fotos y los gráficos pierden detalle y se ven apagados. Con el <b>Color Lowcost</b> salen a color por muy poco más (es para envío a casa).", s?.accion);
+        }
         if (!casiTexto) {
-          const c = await color("Para que se vean esos colores, imprímelo <b>a color</b>.");
-          return salida(nombre, que, "info", "Tu PDF tiene algo de color (títulos o gráficos) y saldrá en grises.", null, c && { texto: c.texto, accion: { etiqueta: c.etiqueta, accion: c.accion } });
+          const s = await subir("Para que se vean esos colores, el <b>Color Lowcost</b> cuesta muy poco más (es para envío a casa).");
+          return salida(nombre, que, "info", "Tu PDF tiene algo de color (títulos o gráficos) y saldrá en grises.", null, s);
         }
         return salida(nombre, que, "bien", "Tu PDF es texto en negro: saldrá nítido y bien contrastado.");
       }
+      if (valor === "color-envio") {
+        const s = await subir(muchasFotos ? "Para que tus fotos salgan con más calidad, el <b>Color CMYK</b> da un color más fiel. Y ese sí se puede recoger en tienda."
+          : "Si quieres un color de más calidad, o recogerlo en tienda, tienes el <b>Color CMYK</b>.");
+        return salida(nombre, que, "bien", casiTexto ? "Tu PDF es casi todo texto: el color hará resaltar títulos y gráficos, y por muy poco." : "Tu PDF a color, a muy buen precio y con envío a casa.", null, s);
+      }
       if (casiTexto) return salida(nombre, que, "bien", "Tu PDF es casi todo texto: el color hará resaltar títulos y gráficos.");
-      const pro = muchasFotos && valor !== "color-pro" ? await alt({ printType: "color-pro" }) : null;
-      const extraPro = pro && { texto: "Para fotos, el <b>Color PRO</b> da colores más fieles e intensos.", accion: { etiqueta: `Color PRO${conPrecio(pro)}`, accion: cambiarA("printType", "color-pro") } };
-      if (valor === "color-envio") return salida(nombre, que, "bien", "Buena opción para tu PDF a color, con envío a casa.", null, extraPro);
-      if (valor === "color") return salida(nombre, que, "bien", "¡Tus colores saldrán vivos!", null, extraPro);
+      if (valor === "color") {
+        const s = muchasFotos ? await subir("Para fotos, el <b>Color PRO</b> da colores más fieles e intensos.") : null;
+        return salida(nombre, que, "bien", "¡Tus colores saldrán vivos!", null, s);
+      }
       if (valor === "color-pro") return salida(nombre, que, "bien", muchasFotos ? "¡La máxima calidad para tus fotos!" : "La máxima calidad de color de la tienda.");
       return null;
     }
