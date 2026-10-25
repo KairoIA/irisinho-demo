@@ -1,0 +1,531 @@
+{
+ "rings": [
+  {
+   "code": "metalica-negra",
+   "name": "Metálica negra",
+   "category": "Estándar",
+   "surcharge": 0.0,
+   "color": "#111111",
+   "finish": "metallic",
+   "opacity": 1,
+   "maxSheets": null,
+   "defaultFor": [
+    "ring"
+   ],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-negra.webp",
+   "advice": "(Máximo 600 hojas a doble cara ó 350 hojas a una cara. Para más cantidad dividir el documento)",
+   "orden": 0
+  },
+  {
+   "code": "morado",
+   "name": "Púrpura",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#800080",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-morado.webp",
+   "orden": 1
+  },
+  {
+   "code": "lila",
+   "name": "Lila",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#d29bfd",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-lila.webp",
+   "orden": 2
+  },
+  {
+   "code": "amarillo",
+   "name": "Amarillo",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#ffff00",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-amarillo.webp",
+   "orden": 3
+  },
+  {
+   "code": "azul-oscuro",
+   "name": "Azul oscuro",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#000080",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-azul.webp",
+   "orden": 4
+  },
+  {
+   "code": "rojo",
+   "name": "Roja",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#ff0000",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-rojo.webp",
+   "orden": 5
+  },
+  {
+   "code": "verde-oscuro",
+   "name": "Verde oscuro",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#006629",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-verde-oscuro.webp",
+   "orden": 6
+  },
+  {
+   "code": "rosa-fucsia",
+   "name": "Rosa fucsia",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#FF0080",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-rosa.webp",
+   "orden": 7
+  },
+  {
+   "code": "rosa-pastel",
+   "name": "Nude pastel",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#e8c7ce",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-rosa-pastel.webp",
+   "orden": 8
+  },
+  {
+   "code": "azul-pastel",
+   "name": "Azul pastel",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#9fd8e6",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-azul-pastel.webp",
+   "orden": 9
+  },
+  {
+   "code": "verde-agua",
+   "name": "Verde agua",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#BDECB6",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-verde-pastel.webp",
+   "orden": 10
+  },
+  {
+   "code": "gris-niebla",
+   "name": "Gris niebla",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#a9afb3",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-gris-niebla.webp",
+   "orden": 11
+  },
+  {
+   "code": "gris-calido",
+   "name": "Gris cálido",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#c4b6ab",
+   "finish": "solid",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-gris-calido.webp",
+   "orden": 12
+  },
+  {
+   "code": "transparente-purpurina",
+   "name": "Transparente purpurina",
+   "category": "Purpurina",
+   "surcharge": 0.35,
+   "color": "#b7c6ce",
+   "finish": "glitter",
+   "opacity": 1,
+   "maxSheets": 200,
+   "defaultFor": [],
+   "sides": [],
+   "image": "assets/tienda/anillas/ring-transparente-purpurina.webp",
+   "orden": 13
+  }
+ ],
+ "covers": [
+  {
+   "code": "acetato-transparente",
+   "name": "Acetato transparente",
+   "category": "Estándar",
+   "surcharge": 0.0,
+   "color": "#ffffff",
+   "finish": "acetate",
+   "opacity": 0.56,
+   "maxSheets": null,
+   "defaultFor": [
+    "delantera"
+   ],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "image": "assets/tienda/anillas/cover-transparente.webp",
+   "orden": 0
+  },
+  {
+   "code": "negra-grofada",
+   "name": "Negra gofrada",
+   "category": "Estándar",
+   "surcharge": 0.0,
+   "color": "#1c1c1c",
+   "finish": "textured",
+   "opacity": 0.86,
+   "maxSheets": null,
+   "defaultFor": [
+    "trasera"
+   ],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "image": "assets/tienda/anillas/cover-negra.webp",
+   "orden": 1
+  },
+  {
+   "code": "purpura",
+   "name": "Púrpura",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#48046c",
+   "finish": "solid",
+   "opacity": 0.65,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 2
+  },
+  {
+   "code": "rosa-fucsia",
+   "name": "Rosa fucsia",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#ff0090",
+   "finish": "solid",
+   "opacity": 0.65,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 3
+  },
+  {
+   "code": "verde-oscuro",
+   "name": "Verde oscuro",
+   "category": "Estándar",
+   "surcharge": 0.3,
+   "color": "#255039",
+   "finish": "solid",
+   "opacity": 0.65,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 4
+  },
+  {
+   "code": "nude-pastel",
+   "name": "Nude pastel",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#eab8c7",
+   "finish": "solid",
+   "opacity": 0.6,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 5
+  },
+  {
+   "code": "cover-salmon-pastel-a619d300",
+   "name": "Salmón pastel",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#ffa270",
+   "finish": "solid",
+   "opacity": 0.56,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "trasera",
+    "delantera"
+   ],
+   "orden": 6
+  },
+  {
+   "code": "purpura-pastel",
+   "name": "Púrpura pastel",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#b17da9",
+   "finish": "solid",
+   "opacity": 0.61,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 7
+  },
+  {
+   "code": "cover-iris-pastel-5b34292f",
+   "name": "Iris pastel",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#98aee6",
+   "finish": "solid",
+   "opacity": 0.6,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 8
+  },
+  {
+   "code": "azul-pastel",
+   "name": "Azul pastel",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#b8dcf4",
+   "finish": "solid",
+   "opacity": 0.56,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 9
+  },
+  {
+   "code": "verde-agua",
+   "name": "Verde agua",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#93f9bc",
+   "finish": "solid",
+   "opacity": 0.68,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 10
+  },
+  {
+   "code": "amarillo-pastel",
+   "name": "Amarillo pastel",
+   "category": "Colores pastel",
+   "surcharge": 0.3,
+   "color": "#ffff99",
+   "finish": "solid",
+   "opacity": 0.6,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 11
+  },
+  {
+   "code": "cover-arena-50b5bebe",
+   "name": "Arena",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#ede3af",
+   "finish": "solid",
+   "opacity": 0.6,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "trasera",
+    "delantera"
+   ],
+   "orden": 12
+  },
+  {
+   "code": "cover-arcilla-be95f602",
+   "name": "Arcilla",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#c6bb8e",
+   "finish": "solid",
+   "opacity": 0.56,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 13
+  },
+  {
+   "code": "verde-oliva",
+   "name": "Verde oliva",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#97a858",
+   "finish": "solid",
+   "opacity": 0.65,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 14
+  },
+  {
+   "code": "aguamarina",
+   "name": "Aguamarina",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#69afb0",
+   "finish": "solid",
+   "opacity": 0.6,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 15
+  },
+  {
+   "code": "cover-verde-fluor-e3f7503c",
+   "name": "Verde Flúor",
+   "category": "Flúor",
+   "surcharge": 0.3,
+   "color": "#00f900",
+   "finish": "solid",
+   "opacity": 0.82,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 15
+  },
+  {
+   "code": "sienna",
+   "name": "Sienna",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#c6938e",
+   "finish": "solid",
+   "opacity": 0.56,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 16
+  },
+  {
+   "code": "gris-niebla",
+   "name": "Gris niebla",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#b7c5ba",
+   "finish": "solid",
+   "opacity": 0.65,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 17
+  },
+  {
+   "code": "gris-calido",
+   "name": "Gris cálido",
+   "category": "Colores nature",
+   "surcharge": 0.3,
+   "color": "#6f6f66",
+   "finish": "solid",
+   "opacity": 0.56,
+   "maxSheets": null,
+   "defaultFor": [],
+   "sides": [
+    "delantera",
+    "trasera"
+   ],
+   "orden": 18
+  }
+ ]
+}
