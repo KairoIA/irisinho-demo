@@ -6,8 +6,10 @@
 // explicando y señalando, para que se vea bien y se lea claro»): un hueco sobre el título donde Irisinho se coloca con su
 // bocadillo. El escenario es un div de la página (solo ocupa sitio); a Irisinho lo coloca irisinho.js mirando dónde está.
 //
-// La tarjeta es su propio elemento con Shadow DOM: no hereda ni toca los estilos de la web. Solo hay una tarjeta y un
-// escenario a la vez; al cambiar de bloque se mueven sin que la página dé un salto bajo el dedo del cliente.
+// La tarjeta es su propio elemento con Shadow DOM: no hereda ni toca los estilos de la web. Al cambiar de bloque, la
+// anterior se recoge y la nueva entra, sin tirones (Javi, 25-oct: «que todo sea fluido»; ver suave.js).
+
+import { cambiarSinSalto, desplazarSuave } from "./suave.js";
 
 const CSS = `
 :host { display: block; grid-column: 1 / -1; width: 100%; }
@@ -27,15 +29,15 @@ b { font-weight: 800; }
 .cerrar { margin-left: auto; border: 0; background: none; font-size: 22px; line-height: 1; padding: 0 2px; color: #000; }
 .paso-barra { height: 4px; background: #ececf6; border-radius: 2px; margin: 6px 0 10px; overflow: hidden; }
 .paso-barra i { display: block; height: 100%; background: #FF0099; border-radius: 2px; transition: width .45s cubic-bezier(.2,.8,.2,1); }
-.paso-titulo { font-size: 17px; font-weight: 800; line-height: 1.25; margin: 2px 0 4px; }
-.texto { font-size: 14px; }
+.paso-titulo { font-size: 18px; font-weight: 800; line-height: 1.25; margin: 2px 0 4px; }
+.texto { font-size: 15px; line-height: 1.45; }
 
 /* Lo que ha elegido: nombre grande y qué es, en una línea */
-.op-nombre { font-size: 17px; font-weight: 800; line-height: 1.2; }
-.op-que { font-size: 13px; color: #555; margin-top: 2px; }
+.op-nombre { font-size: 18px; font-weight: 800; line-height: 1.2; }
+.op-que { font-size: 14px; color: #4a4a55; line-height: 1.4; margin-top: 2px; }
 
 /* Lo que Irisinho opina */
-.veredicto { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 14.5px; font-weight: 600; line-height: 1.4; }
+.veredicto { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 15.5px; font-weight: 600; line-height: 1.42; }
 .marca { flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #000;
   font: 900 11px/1 Montserrat, sans-serif; background: #fff; margin-top: 1px; }
 .veredicto.bien .marca { background: #CCCCFF; }
@@ -48,7 +50,7 @@ b { font-weight: 800; }
 .consejo-etq { font-size: 10.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 3px; }
 .consejo.mejor .consejo-etq { color: #7a5c00; }
 .consejo.tambien .consejo-etq { color: #4b3fbf; }
-.consejo-txt { font-size: 14px; line-height: 1.42; }
+.consejo-txt { font-size: 15px; line-height: 1.45; }
 .consejo .btn { margin-top: 8px; }
 
 /* Resumen final */
@@ -92,35 +94,55 @@ const bloque = (ancla) => {
   const el = document.querySelector(`[data-iris-ancla="${ancla}"]`);
   return el && (el.offsetWidth || el.offsetHeight) ? el : null;
 };
+// Lo que no debe moverse cuando cambia algo por encima: en un bloque del configurador, su fila de opciones (lo que ha
+// tocado el cliente); si no, el propio elemento.
+const quieto = (el) => (el.matches(".grupo") && el.querySelector(".selector")) || el;
 
-// Mueve un nodo de la página sin que el bloque de destino se desplace en la pantalla.
-function sinSalto(el, mover) {
-  const antes = el.getBoundingClientRect().top;
-  mover();
-  const salto = el.getBoundingClientRect().top - antes;
-  if (Math.abs(salto) > 1) window.scrollBy({ top: salto, behavior: "instant" });
+// Recoge una tarjeta o un hueco hacia arriba (alto y opacidad a cero) y lo quita al acabar.
+function recoger(el, ms = 320) {
+  if (!el?.isConnected) return;
+  const h = el.offsetHeight;
+  if (!h || reducir()) { el.remove(); return; }
+  el.style.overflow = "hidden";
+  el.style.pointerEvents = "none";
+  el.animate([{ height: h + "px", opacity: 1 }, { height: "0px", opacity: 0 }], { duration: ms, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" })
+    .finished.then(() => el.remove(), () => el.remove());
 }
 
-// Pone la tarjeta bajo el bloque `ancla` con ese HTML y devuelve su caja (para enlazar los botones), o null si el bloque
-// no está.
-export function ponerTarjeta(ancla, html) {
+// Pone la tarjeta junto al bloque `ancla` con ese HTML y devuelve su caja (para enlazar los botones), o null si el
+// bloque no está. Por defecto va debajo del bloque; con `antes`, encima (la bienvenida y la lectura del PDF, Javi 25-oct:
+// «Irisinho con su bocadillo, debajo "hola, soy Irisinho", y luego subir documentos»). Al cambiar de sitio, la anterior se
+// recoge y la nueva entra; con `fijar`, el bloque que toca el cliente no se mueve (si la guía va a desplazar la página
+// hasta el paso nuevo, no hace falta: el viaje lo hace todo de una vez y sin saltos).
+export function ponerTarjeta(ancla, html, { antes = false, fijar = true } = {}) {
   const el = bloque(ancla);
   if (!el) return null;
-  const dentro = el.matches(".grupo");
-  if (!tarjeta) tarjeta = document.createElement("irisinho-tarjeta");
-  const sitioBien = tarjeta.isConnected && (dentro ? tarjeta.parentElement === el : tarjeta.previousElementSibling === el);
+  const dentro = !antes && el.matches(".grupo");
+  const sitioBien = tarjeta?.isConnected && !tarjeta.recogiendo
+    && (antes ? tarjeta.nextElementSibling === el : dentro ? tarjeta.parentElement === el : tarjeta.previousElementSibling === el);
   if (!sitioBien) {
-    sinSalto(el, () => {
-      tarjeta.remove();
-      if (dentro) el.append(tarjeta);
-      else el.after(tarjeta);
-    });
+    const vieja = tarjeta;
+    tarjeta = document.createElement("irisinho-tarjeta");
     tarjeta.style.maxWidth = dentro ? "" : getComputedStyle(el).maxWidth;
-    tarjeta.caja.classList.remove("entra");
-    void tarjeta.caja.offsetWidth;
-    tarjeta.caja.classList.add("entra");
+    const meter = () => {
+      if (vieja) { vieja.recogiendo = true; recoger(vieja); }
+      if (antes) el.before(tarjeta);
+      else if (dentro) el.append(tarjeta);
+      else el.after(tarjeta);
+    };
+    tarjeta.caja.innerHTML = html;
+    if (fijar) cambiarSinSalto(quieto(el), meter);
+    else meter();
+    if (!reducir()) tarjeta.caja.classList.add("entra");
+    return tarjeta.caja;
   }
+  // Mismo sitio, contenido nuevo: si cambia de alto, crece o encoge suave (nada de saltos).
+  const h0 = tarjeta.offsetHeight;
   tarjeta.caja.innerHTML = html;
+  const h1 = tarjeta.offsetHeight;
+  if (Math.abs(h1 - h0) > 2 && !reducir()) {
+    tarjeta.animate([{ height: h0 + "px", overflow: "hidden" }, { height: h1 + "px", overflow: "hidden" }], { duration: 260, easing: "cubic-bezier(.4,0,.2,1)" });
+  }
   return tarjeta.caja;
 }
 
@@ -128,11 +150,9 @@ export function quitarTarjeta(animado = true) {
   const t = tarjeta;
   if (!t?.isConnected) return;
   tarjeta = null;
-  const h = t.offsetHeight;
-  if (!animado || !h || reducir()) { t.remove(); return; }
-  t.style.overflow = "hidden";
-  t.animate([{ height: h + "px", opacity: 1 }, { height: "0px", opacity: 0 }], { duration: 220, easing: "ease-in" })
-    .finished.then(() => t.remove(), () => t.remove());
+  if (!animado) { t.remove(); return; }
+  t.recogiendo = true;
+  recoger(t, 240);
 }
 
 // Ojo: se mide la tarjeta de dentro (caja), no el elemento: en una columna flex su margen no se junta con el de fuera.
@@ -140,58 +160,82 @@ export function tarjetaPuesta() {
   return tarjeta?.isConnected ? tarjeta : null;
 }
 
-// Escenario de Irisinho encima del bloque `ancla` (alto en px). Al abrirse crece suave; el anterior se quita sin salto.
-export function ponerEscenario(ancla, alto) {
+// Escenario de Irisinho (alto en px): por defecto encima del bloque `ancla`; con `junto`, justo encima de la tarjeta
+// (el resumen final: Irisinho baja al cuadro de «¡Todo listo!»). Al abrirse crece suave y el anterior se cierra suave.
+// `inmediato`: ya abierto (al cargar la página, para que Irisinho aparezca directamente en su sitio).
+export function ponerEscenario(ancla, alto, { junto = false, fijar = true, inmediato = false } = {}) {
   const el = bloque(ancla);
-  if (!el) { quitarEscenario(); return null; }
-  const dentro = el.matches(".grupo");
-  if (escenario?.isConnected && (dentro ? escenario.parentElement === el && el.firstElementChild === escenario : escenario.nextElementSibling === el)) {
-    if (parseFloat(escenario.style.height) !== alto) escenario.style.height = alto + "px";
+  const ref = junto ? tarjetaPuesta() : null;
+  if (!el || (junto && !ref)) { quitarEscenario(); return null; }
+  const dentro = !junto && el.matches(".grupo");
+  const bienPuesto = escenario?.isConnected && (junto ? escenario.nextElementSibling === ref
+    : dentro ? escenario.parentElement === el && el.firstElementChild === escenario : escenario.nextElementSibling === el);
+  if (bienPuesto) {
+    if (parseFloat(escenario.style.height) !== alto) {
+      if (inmediato) escenario.style.transition = "none";
+      escenario.style.height = alto + "px";
+      if (inmediato) { void escenario.offsetHeight; escenario.style.transition = "height .42s cubic-bezier(.4,0,.2,1)"; }
+    }
     return escenario;
   }
   const nuevo = document.createElement("div");
   nuevo.className = "irisinho-escenario";
   nuevo.setAttribute("aria-hidden", "true");
-  Object.assign(nuevo.style, { display: "block", gridColumn: "1 / -1", width: "100%", height: reducir() ? alto + "px" : "0px", transition: "height .32s cubic-bezier(.2,.8,.2,1)" });
+  const ya = inmediato || reducir();
+  Object.assign(nuevo.style, { display: "block", gridColumn: "1 / -1", width: "100%", height: ya ? alto + "px" : "0px", transition: "height .42s cubic-bezier(.4,0,.2,1)" });
   // Fuera de un bloque del configurador (la subida, la lista de archivos), tan ancho como ese elemento.
-  if (!dentro) nuevo.style.maxWidth = getComputedStyle(el).maxWidth;
-  sinSalto(el, () => {
-    escenario?.remove();
-    if (dentro) el.prepend(nuevo);
+  if (junto) nuevo.style.maxWidth = ref.style.maxWidth;
+  else if (!dentro) nuevo.style.maxWidth = getComputedStyle(el).maxWidth;
+  const viejo = escenario;
+  const meter = () => {
+    cerrarHueco(viejo);
+    if (junto) ref.before(nuevo);
+    else if (dentro) el.prepend(nuevo);
     else el.before(nuevo);
-  });
+  };
+  if (fijar) cambiarSinSalto(quieto(el), meter);
+  else meter();
   escenario = nuevo;
-  if (!reducir()) requestAnimationFrame(() => { nuevo.style.height = alto + "px"; });
+  if (!ya) requestAnimationFrame(() => requestAnimationFrame(() => { nuevo.style.height = alto + "px"; }));
   return nuevo;
+}
+
+function cerrarHueco(e) {
+  if (!e?.isConnected) return;
+  if (reducir()) { e.remove(); return; }
+  e.style.height = "0px";
+  setTimeout(() => e.remove(), 440);
 }
 
 export function quitarEscenario() {
   const e = escenario;
   escenario = null;
-  if (!e?.isConnected) return;
-  if (reducir()) { e.remove(); return; }
-  e.style.height = "0px";
-  setTimeout(() => e.remove(), 340);
+  cerrarHueco(e);
 }
 
 export function escenarioPuesto() {
   return escenario?.isConnected ? escenario : null;
 }
 
-// Lleva la vista al bloque con su escenario y su tarjeta: todo junto si cabe; si no, que se vea desde el escenario.
+// Lleva la vista, deslizando, al bloque con su escenario y su tarjeta: todo junto si cabe; si no, que se vea desde el
+// escenario. El destino se recalcula mientras se desplaza (el hueco crece, la tarjeta anterior se recoge).
 export function verTarjeta(ancla, { arriba = 56, abajo = 0 } = {}) {
   const el = bloque(ancla);
-  const t = tarjetaPuesta();
-  if (!el || !t) return;
-  const re = el.getBoundingClientRect();
-  const rt = t.caja.getBoundingClientRect();
-  const rs = escenarioPuesto()?.getBoundingClientRect();
-  const alto = rs ? parseFloat(escenarioPuesto().style.height) || rs.height : 0;
-  const top = Math.min(re.top, rt.top, rs ? rs.top : Infinity);
-  const bottom = Math.max(re.bottom, rt.bottom) + (rs && rs.height < alto ? alto - rs.height : 0);
-  const fondo = window.innerHeight - abajo - 12;
-  const y = bottom - top <= fondo - arriba ? top - arriba : Math.min(top - arriba, rt.bottom - fondo);
-  if (Math.abs(y) > 4) window.scrollTo({ top: Math.max(0, window.scrollY + y), behavior: "smooth" });
+  if (!el || !tarjetaPuesta()) return;
+  desplazarSuave(() => {
+    const t = tarjetaPuesta();
+    if (!t) return window.scrollY;
+    const re = el.getBoundingClientRect();
+    const rt = t.caja.getBoundingClientRect();
+    const st = escenarioPuesto();
+    const rs = st?.getBoundingClientRect();
+    const falta = st ? Math.max(0, (parseFloat(st.style.height) || 0) - rs.height) : 0;
+    const top = Math.min(re.top, rt.top, rs ? rs.top : Infinity);
+    const bottom = Math.max(re.bottom, rt.bottom) + falta;
+    const fondo = window.innerHeight - abajo - 12;
+    const y = bottom - top <= fondo - arriba ? top - arriba : Math.min(top - arriba, rt.bottom + falta - fondo);
+    return window.scrollY + y;
+  });
 }
 
 export function tarjetaVisible({ arriba = 40, abajo = 0 } = {}) {

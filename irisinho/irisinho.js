@@ -12,6 +12,7 @@ import { pedirPrecio, sinServidor } from "../js/calculadora.js";
 import { CAMPOS_CON_NOTA, escalaPagina, explicar, temaDe } from "./explicaciones.js";
 import { Guia } from "./guia.js";
 import { CSS_MUNECO, Muneco } from "./muneco.js";
+import { desplazarSuave } from "./suave.js";
 import { escenarioPuesto, ponerEscenario, ponerTarjeta, quitarEscenario, quitarTarjeta, tarjetaPuesta, tarjetaVisible, verTarjeta } from "./tarjeta.js";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../vendor/pdfjs/pdf.worker.min.mjs", import.meta.url).href;
@@ -26,6 +27,9 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 const FACTOR_PPS = { "1_vertical": 1, "1_horizontal": 1, "2_vertical": 0.5, "2_horizontal": 0.5, "4_horizontal": 0.25 };
 const hojas = (paginas, cfg) => Math.ceil(paginas * (FACTOR_PPS[cfg.pagesPerSide] ?? 1) * (cfg.printForm === "doble-cara" ? 0.5 : 1));
 const TIENDA = "pedidos@iris-copy.es (lunes a viernes, 7:00-15:00)";
+// En la ventana del pedido (Javi, 25-oct: «que se quede en el bloque de tu pedido y diga: si tienes alguna duda con el
+// pago o con tu envío, pulsa aquí»).
+const TEXTO_PEDIDO = "¿Alguna duda con el pago o con el envío? Pulsa aquí";
 
 function rangos(nums) {
   const out = [];
@@ -49,6 +53,7 @@ button { font-family: inherit; cursor: pointer; }
 /* ---------------- Mascota ---------------- */
 .mascota { position: absolute; left: 0; top: 0; width: var(--t, 104px); height: var(--t, 104px); pointer-events: auto;
   cursor: pointer; will-change: transform; -webkit-tap-highlight-color: transparent; outline: none; }
+.mascota.llegando { opacity: 0; pointer-events: none; }
 .mascota:focus-visible .cuerpo { outline: 3px solid #FF0099; outline-offset: 4px; border-radius: 50%; }
 .aparta { position: absolute; inset: 0; transition: transform .35s cubic-bezier(.3,.7,.3,1), opacity .35s; }
 .apartado .aparta { transform: translateX(62%) scale(.86); opacity: .75; }
@@ -92,7 +97,7 @@ button { font-family: inherit; cursor: pointer; }
 /* Bocadillo junto a Irisinho: qué se elige en cada sección, avisos y lo que puede hacer. Siempre con × */
 .globo { position: absolute; left: 0; top: 0; width: max-content; max-width: 260px; pointer-events: auto; background: #fff;
   border: 2px solid #000; border-radius: 12px; box-shadow: 3px 3px 0 #000; padding: 6px 26px 7px 10px; color: #000;
-  font: 700 12.5px/1.3 Montserrat, Arial, sans-serif; opacity: 0; transform: scale(.9); transform-origin: 100% 70%;
+  font: 700 13.5px/1.32 Montserrat, Arial, sans-serif; opacity: 0; transform: scale(.9); transform-origin: 100% 70%;
   transition: opacity .2s, transform .2s; }
 .globo.visible { opacity: 1; transform: none; }
 .globo[hidden] { display: none; }
@@ -262,14 +267,18 @@ class IrisinhoAsistente extends HTMLElement {
     this.guia = new Guia(this, { euros, esc, base: BASE, esMovil });
     if (sinGuia) this.guia.activa = false;
     this.escuchar();
-    setTimeout(() => { if (this.guia.activa && this.estado) this.guia.pintar({ desplazar: false }); }, 1300);
+    // Al cargar, Irisinho aparece directamente en su sitio (Javi, 25-oct: «que no vaya abajo y luego arriba; que se quede
+    // donde está diciendo hola»): no se ve hasta que su hueco está puesto y las letras cargadas, y entonces aparece allí.
+    this.llegando = true;
+    this.t0Llegada = performance.now();
+    document.fonts?.ready.then(() => { this.fuentesListas = true; });
     this.colocarEnCasa(false);
-    if (!this.quieto && !sinMovimiento()) setTimeout(() => this.saludar(), 900);
     this.microAcciones();
     this.seguirB = (ms) => this.seguir(ms);
     this.rafSeguir = requestAnimationFrame(this.seguirB);
     this.vigilarSueno();
     document.dispatchEvent(new CustomEvent("iris:pedir-estado"));
+    if (this.guia.activa && this.estado) this.guia.pintar({ desplazar: false, inmediato: true });
   }
 
   // ------------------------------------------------------------------ montaje
@@ -281,7 +290,7 @@ class IrisinhoAsistente extends HTMLElement {
       <style>${CSS}${CSS_MUNECO}</style>
       <div class="capa${this.quieto ? " quieto" : ""}">
         <div class="resalte"></div>
-        <div class="mascota" role="button" tabindex="0" aria-label="Irisinho, asistente con IA de Iris Copy. Abrir el chat">
+        <div class="mascota llegando" role="button" tabindex="0" aria-label="Irisinho, asistente con IA de Iris Copy. Abrir el chat">
           <div class="aparta">
             <div class="sombra"></div>
             <div class="cuerpo"><div class="balancea"><div class="inclina"><div class="pop">
@@ -441,7 +450,42 @@ class IrisinhoAsistente extends HTMLElement {
   }
   destino() {
     if (this.chat.abierto && !esMovil()) return this.casa();
+    if (this.carritoAbierto()) return this.posadero() || this.posaderoPedido() || this.casa();
+    this.quitarHuecoPedido();
     return this.posadero() || this.casa();
+  }
+  // Hueco bajo el título «Tu pedido», como el de las secciones: Irisinho a la derecha y su bocadillo al lado. La ventana
+  // tiene su propio desplazamiento: Irisinho va pegado a ella (marco).
+  posaderoPedido() {
+    if (this.chat.abierto) return null;
+    const caja = document.querySelector("#veloCarrito .carrito");
+    const titulo = caja?.querySelector("h2");
+    if (!titulo) return null;
+    let hueco = this.huecoPedido;
+    if (!hueco?.isConnected) {
+      hueco = this.huecoPedido = document.createElement("div");
+      hueco.className = "irisinho-escenario";
+      hueco.setAttribute("aria-hidden", "true");
+      hueco.style.cssText = "display:block;width:100%;height:0;transition:height .42s cubic-bezier(.4,0,.2,1)";
+      titulo.after(hueco);
+      this.altoPedido = null;
+    }
+    const r = hueco.getBoundingClientRect();
+    if (!r.width) return null;
+    if (this.altoPedido?.ancho !== Math.round(r.width)) {
+      const alto = Math.round(Math.max(this.t * 0.9, this.medirGlobo(TEXTO_PEDIDO, r.width) + 12));
+      this.altoPedido = { ancho: Math.round(r.width), alto };
+      requestAnimationFrame(() => { hueco.style.height = alto + "px"; });
+    }
+    const alto = this.altoPedido.alto;
+    this.escenario = { left: r.left, right: r.right, top: r.top, alto };
+    return { x: r.right - this.t + 4, y: r.top - this.t * 0.06, posado: true, pedido: true, marco: caja };
+  }
+  quitarHuecoPedido() {
+    const h = this.huecoPedido;
+    if (!h) return;
+    this.huecoPedido = null;
+    h.remove();
   }
   // Con una tarjeta suya puesta, Irisinho se coloca en el escenario que se abre encima de ese bloque (a la derecha,
   // señalando hacia abajo, con su bocadillo al lado) y va pegado a la página al desplazarse (Javi, 25-oct: «Irisinho
@@ -460,6 +504,8 @@ class IrisinhoAsistente extends HTMLElement {
     const medio = r.top + alto * 0.5;
     // Mientras la página se desplaza hacia un paso nuevo, va directo a su sitio (sin decir «seguimos aquí abajo»).
     const enCamino = Date.now() < (this.enCaminoHasta || 0);
+    const ventana = st.closest(".carrito");
+    if (ventana) { this.quitarHuecoPedido(); return { x: r.right - t + 4, y: r.top - t * 0.06, posado: true, marco: ventana }; }
     if (enCamino || (medio > cinta && medio < abajo)) return { x: r.right - t + 4, y: r.top - t * 0.06, posado: true, pagina: true };
     // El escenario se fue por arriba pero el bloque o su tarjeta siguen a la vista: se queda pegado arriba, acompañando
     // (sin bocadillo, para no tapar las opciones).
@@ -485,6 +531,7 @@ class IrisinhoAsistente extends HTMLElement {
     this.tSeguir = ms;
     if (this.volando || document.hidden) return;
     const d = this.destino();
+    if (this.llegando) { this.llegar(d); return; }
     if (!!d.posado !== !!this.posado || d.fuera !== this.fuera || !!d.pegado !== !!this.pegado) {
       this.posado = !!d.posado;
       this.fuera = d.fuera;
@@ -492,10 +539,14 @@ class IrisinhoAsistente extends HTMLElement {
       this.pintarEtiqueta();
       if ((d.fuera || d.posado) && !this.dormido) setTimeout(() => this.senalar(true), 350);
     }
-    const ox = d.pagina ? window.scrollX : 0;
-    const oy = d.pagina ? window.scrollY : 0;
+    // Marco: la página (el escenario de un bloque) o la ventana del pedido, que se desplazan; si no, la pantalla.
+    const marco = d.pagina ? "pagina" : d.marco || null;
+    let ox = 0;
+    let oy = 0;
+    if (marco === "pagina") { ox = window.scrollX; oy = window.scrollY; }
+    else if (marco) { const rm = marco.getBoundingClientRect(); ox = marco.scrollLeft - rm.left; oy = marco.scrollTop - rm.top; }
     let m = this.muellePos;
-    if (!m || m.pagina !== !!d.pagina) m = this.muellePos = { pagina: !!d.pagina, x: this.pos.x + ox, y: this.pos.y + oy, vx: 0, vy: 0 };
+    if (!m || m.marco !== marco) m = this.muellePos = { marco, x: this.pos.x + ox, y: this.pos.y + oy, vx: 0, vy: 0 };
     const tx = d.x + ox;
     const ty = d.y + oy;
     const quieto = this.quieto || sinMovimiento();
@@ -504,8 +555,8 @@ class IrisinhoAsistente extends HTMLElement {
     else {
       for (let resto = dt; resto > 0; resto -= 1 / 120) {
         const h = Math.min(resto, 1 / 120);
-        m.vx += (150 * (tx - m.x) - 21 * m.vx) * h;
-        m.vy += (150 * (ty - m.y) - 21 * m.vy) * h;
+        m.vx += (70 * (tx - m.x) - 15 * m.vx) * h;
+        m.vy += (70 * (ty - m.y) - 15 * m.vy) * h;
         m.x += m.vx * h;
         m.y += m.vy * h;
       }
@@ -520,6 +571,29 @@ class IrisinhoAsistente extends HTMLElement {
       this.colocarGlobo();
     }
   }
+  // Primera vez: espera a que su sitio esté listo (el hueco de la bienvenida y las letras cargadas, con tope) y aparece
+  // ahí mismo, sin cruzar la pantalla.
+  llegar(d) {
+    const pasado = performance.now() - this.t0Llegada;
+    const sitio = d.posado || !this.guia.activa || this.guia.pausada || pasado > 1800;
+    if (!sitio || (!this.fuentesListas && pasado < 900)) return;
+    this.llegando = false;
+    this.muellePos = null;
+    this.fijar(d);
+    this.posado = !!d.posado;
+    this.mascota.classList.remove("llegando");
+    if (!this.quieto && !sinMovimiento()) {
+      this.$(".aparta").animate([
+        { transform: "translateY(-18%) scale(.55)", opacity: 0 },
+        { transform: "translateY(3%) scale(1.07, .93)", opacity: 1, offset: 0.6 },
+        { transform: "none", opacity: 1 },
+      ], { duration: 700, easing: "cubic-bezier(.2,.8,.2,1)" });
+      setTimeout(() => this.saludar(), 380);
+    }
+    this.pintarEtiqueta();
+    this.colocarBocadillo();
+    this.colocarGlobo();
+  }
   colocarEnCasa(animado) {
     this.anclado = null;
     this.colocar(animado);
@@ -531,15 +605,16 @@ class IrisinhoAsistente extends HTMLElement {
   volar(d) {
     const desde = { ...this.pos };
     const dist = Math.hypot(d.x - desde.x, d.y - desde.y);
-    const dur = Math.min(950, 420 + dist * 0.55);
+    const dur = Math.min(1700, 760 + dist * 0.7);
     const dir = Math.sign(d.x - desde.x) || 1;
-    this.vuelo = { desde, t0: performance.now(), dur, alto: Math.min(90, 30 + dist * 0.12) };
+    this.vuelo = { desde, t0: performance.now(), dur, alto: Math.min(110, 34 + dist * 0.14) };
     this.muneco.accion("volar", { dir, ms: dur });
     if (this.volando) return;            // ya volaba: solo cambia el plan
     this.volando = true;
     this.capa.classList.add("volando");
     this.$(".pop").animate([{ transform: "rotate(0deg)" }, { transform: `rotate(${dir * 9}deg)` }, { transform: `rotate(${dir * 6}deg)` }, { transform: "rotate(0deg)" }], { duration: dur, easing: "ease-in-out" });
-    const suaveV = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+    // Curva suave al salir y al llegar (sin acelerones a mitad de camino): se nota que vuela, no que salta.
+    const suaveV = (p) => (1 - Math.cos(Math.PI * p)) / 2;
     const paso = () => {
       const v = this.vuelo;
       const p = Math.min(1, (performance.now() - v.t0) / v.dur);
@@ -884,10 +959,11 @@ class IrisinhoAsistente extends HTMLElement {
     if (!g) return;
     const e = this.estado;
     const vacio = !e?.archivos?.length && !e?.carrito?.lineas?.length;
-    const libre = !this.chat.abierto && !this.dormido && !this.mascota.classList.contains("oculto");
+    const libre = !this.chat.abierto && !this.dormido && !this.llegando && !this.mascota.classList.contains("oculto");
     let m = null;
     if (libre) {
       if (this.avisoGlobo && Date.now() < this.avisoGlobo.hasta) m = this.avisoGlobo;
+      else if (this.carritoAbierto() && !this.actual) m = { clave: "pedido", texto: TEXTO_PEDIDO, accion: () => this.abrirChat() };
       else if (this.fuera && this.actual) {
         const sube = this.fuera === "arriba";
         m = { clave: `fuera:${this.fuera}:${this.actual.ancla}`, accion: () => this.volverAlPaso(),
@@ -910,7 +986,7 @@ class IrisinhoAsistente extends HTMLElement {
     const nuevo = txt.textContent !== m.texto;
     if (nuevo) txt.textContent = m.texto;
     g.classList.toggle("accion", !!m.accion);
-    g.classList.toggle("con-flecha", !!m.accion && !/[↑↓→]/.test(m.texto));
+    g.classList.toggle("con-flecha", !!m.accion && !/[↑↓→]|[Pp]ulsa aquí/.test(m.texto));
     if (g.hidden) {
       g.hidden = false;
       this.colocarGlobo();
@@ -937,6 +1013,21 @@ class IrisinhoAsistente extends HTMLElement {
     g.style.left = Math.max(e ? e.left : 8, x - w - 4) + "px";
     g.style.top = top + "px";
     g.style.setProperty("--cola", Math.max(12, Math.min(h - 12, y + t * 0.38 - top)) + "px");
+  }
+  // Alto que tendría el bocadillo con ese texto en un hueco de ese ancho (mismo cálculo de ancho que colocarGlobo).
+  medirGlobo(texto, anchoHueco) {
+    let m = this.globoMedida;
+    if (!m) {
+      m = this.globoMedida = this.globo.cloneNode(true);
+      m.hidden = false;
+      m.removeAttribute("role");
+      m.setAttribute("aria-hidden", "true");
+      Object.assign(m.style, { visibility: "hidden", left: "-9999px", top: "0px" });
+      this.capa.append(m);
+    }
+    m.querySelector(".globo__texto").textContent = texto;
+    m.style.maxWidth = Math.max(140, Math.min(esMovil() ? 290 : 330, anchoHueco - this.t - 8)) + "px";
+    return m.offsetHeight;
   }
   avisarGlobo(m, ms = 5000) {
     this.avisoGlobo = { ...m, hasta: Date.now() + ms };
@@ -1288,10 +1379,9 @@ class IrisinhoAsistente extends HTMLElement {
           const pt = r.letra * escala;
           if (pt >= 6.5) continue;
           const alt = n === 4 ? "2_horizontal" : cfg.orientation.startsWith("horizontal") ? "1_horizontal" : "1_vertical";
-          const ptAlt = r.letra * Math.min(1, escalaPagina(alt, cfg.paperSize, r.anchoPt, r.altoPt) ?? (n === 4 ? 0.707 : 1));
           return {
             clave: "letra:" + a.id + ":" + n, tipo: "error", ancla: "pagesPerSide", pose: "lupa",
-            texto: `Con ${n} páginas por cara, la letra de <b>${esc(a.nombre)}</b> quedaría a unos <b>${pt.toFixed(1).replace(".", ",")} pt</b>: cuesta leerla. Con ${n === 4 ? 2 : 1} por cara, unos ${ptAlt.toFixed(1).replace(".", ",")} pt.`,
+            texto: `Con ${n} páginas por cara, la letra de <b>${esc(a.nombre)}</b> saldría muy pequeña y costaría leerla. Con ${n === 4 ? "2 páginas" : "1 página"} por cara se lee mucho mejor.`,
             acciones: [{ etiqueta: `${n === 4 ? 2 : 1} página${n === 4 ? "s" : ""} por cara`, principal: true, accion: { tipo: "cambiar", campo: "pagesPerSide", valor: alt } }, { etiqueta: "Me vale así", cerrar: true }],
             valido: (s) => parseInt(s.config.pagesPerSide, 10) === n,
           };
@@ -1447,8 +1537,9 @@ class IrisinhoAsistente extends HTMLElement {
     caja.querySelector("[data-silenciar]").addEventListener("click", () => { this.silenciar(true); this.cerrarConsejo(true); });
     caja.querySelector("[data-ensenar]")?.addEventListener("click", (ev) => {
       ev.currentTarget.remove();
-      document.querySelector(`[data-iris-ancla="${c.ancla}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      setTimeout(() => this.colocar(true), 650);
+      const el = document.querySelector(`[data-iris-ancla="${c.ancla}"]`);
+      if (el) desplazarSuave(() => { const r = el.getBoundingClientRect(); return window.scrollY + r.top + r.height / 2 - window.innerHeight / 2; });
+      setTimeout(() => this.colocar(true), 900);
     });
     for (const b of caja.querySelectorAll("[data-i]")) {
       b.addEventListener("click", () => {

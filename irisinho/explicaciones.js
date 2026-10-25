@@ -7,6 +7,8 @@
 // 25-oct, segunda vuelta (Javi: «quita lo de que el B/N es lo más barato; que la gente gaste un poco más sin engañarle;
 // textos más claros y fáciles de leer»): frases cortas en positivo, nada de «lo más barato», y no se proponen opciones
 // más baratas salvo para evitar un error (A3 con un PDF A4, cartulina o fotográfico para un documento entero…).
+// 25-oct, cuarta vuelta (Javi: «eso de 10,5 pt, ¿qué es?; la gente tiene que entenderlo; explica mejor la hoja y las
+// páginas por cara»): la letra se describe con palabras (como en tu PDF, pequeña, muy pequeña), nunca en puntos.
 
 export const CAMPOS_CON_NOTA = ["paperSize", "paperType", "printType", "printForm", "orientation", "pagesPerSide", "finishType", "boundType", "encuadernacion", "boundPages"];
 
@@ -55,18 +57,18 @@ const QUE = {
     fotografico: "Papel fotográfico con brillo: los colores al máximo",
   },
   printType: {
-    "blanco-negro": "Impresión en escala de grises",
+    "blanco-negro": "Todo en negro y tonos de gris",
     "color-envio": "Color con tarifa especial para envíos a casa (no se recoge en tienda)",
     color: "Impresión a todo color",
     "color-pro": "El color de más calidad de la tienda",
   },
-  printForm: { "una-cara": "Cada hoja impresa por un solo lado", "doble-cara": "Impreso por los dos lados de cada hoja" },
+  printForm: { "una-cara": "Se imprime solo por delante; la parte de atrás queda en blanco", "doble-cara": "Se imprime por delante y por detrás de cada hoja" },
   pagesPerSide: {
-    "1_vertical": "Cada página de tu PDF en su propia cara",
-    "1_horizontal": "Cada página de tu PDF en su propia cara",
-    "2_vertical": "Dos páginas en cada cara, una encima de otra",
-    "2_horizontal": "Dos páginas en cada cara, una al lado de otra",
-    "4_horizontal": "Cuatro páginas en cada cara",
+    "1_vertical": "Cada página de tu PDF ocupa una cara entera del folio, a tamaño completo",
+    "1_horizontal": "Cada página de tu PDF ocupa una cara entera del folio, a tamaño completo",
+    "2_vertical": "Dos páginas de tu PDF en cada cara del folio, una encima de otra y más pequeñas",
+    "2_horizontal": "Dos páginas de tu PDF en cada cara del folio, una al lado de otra y más pequeñas",
+    "4_horizontal": "Cuatro páginas de tu PDF en cada cara del folio, en tamaño pequeño",
   },
   finishType: {
     "sin-acabado": "Hojas sueltas, sin grapa ni espiral",
@@ -84,10 +86,10 @@ const NOMBRE = {
   printType: { "blanco-negro": "Blanco y negro", "color-envio": "Color Lowcost", color: "Color CMYK", "color-pro": "Color PRO" },
   printForm: { "una-cara": "Una cara", "doble-cara": "Doble cara" },
   orientation: {
-    "vertical-derecha-izquierda": "Hoja vertical", "vertical-abajo-arriba": "Hoja vertical",
-    "horizontal-abajo-arriba": "Hoja horizontal", "horizontal-derecha-izquierda": "Hoja horizontal",
+    "vertical-derecha-izquierda": "Hoja vertical (de pie)", "vertical-abajo-arriba": "Hoja vertical (de pie)",
+    "horizontal-abajo-arriba": "Hoja horizontal (tumbada)", "horizontal-derecha-izquierda": "Hoja horizontal (tumbada)",
   },
-  pagesPerSide: { "1_vertical": "1 por cara", "1_horizontal": "1 por cara", "2_vertical": "2 por cara", "2_horizontal": "2 por cara", "4_horizontal": "4 por cara" },
+  pagesPerSide: { "1_vertical": "1 página por cara", "1_horizontal": "1 página por cara", "2_vertical": "2 páginas por cara", "2_horizontal": "2 páginas por cara", "4_horizontal": "4 páginas por cara" },
   finishType: { "sin-acabado": "Sin acabado", grapado: "Grapado", "dos-taladros": "Dos taladros", "cuatro-taladros": "Cuatro taladros", plastificado: "Plastificado", encuadernado: "Encuadernado en espiral" },
   boundType: { individual: "Individualmente", agrupados: "Agrupados" },
 };
@@ -95,7 +97,6 @@ const PASO = {
   "vertical-derecha-izquierda": "como un libro", "vertical-abajo-arriba": "hacia arriba, como un bloc",
   "horizontal-abajo-arriba": "hacia arriba, como un calendario", "horizontal-derecha-izquierda": "como un libro apaisado",
 };
-const pt = (n) => n.toFixed(1).replace(".", ",");
 
 // Devuelve {nombre, que, html, tipo: "bien"|"mejor"|"info", texto, accion?: {etiqueta, accion}, extra?: {texto, accion?}}
 // o null. «mejor» = hay algo que le irá mejor (o un error que evitar); «extra» = también podría añadir algo.
@@ -185,7 +186,7 @@ export async function explicar(campo, ctx) {
         return a && { etiqueta: `Color${conPrecio(a)}`, accion: cambiarA("printType", "color"), texto };
       };
       if (valor === "blanco-negro") {
-        if (fotos >= 0.15) return salida(nombre, que, "mejor", "Tu PDF tiene mucho color: en blanco y negro las fotos y gráficos perderían su gracia.", await color());
+        if (fotos >= 0.15) return salida(nombre, que, "mejor", "Tu PDF tiene mucho color: en blanco y negro, las fotos y los gráficos pierden detalle y se ven apagados.", await color());
         if (!casiTexto) {
           const c = await color("Para que se vean esos colores, imprímelo <b>a color</b>.");
           return salida(nombre, que, "info", "Tu PDF tiene algo de color (títulos o gráficos) y saldrá en grises.", null, c && { texto: c.texto, accion: { etiqueta: c.etiqueta, accion: c.accion } });
@@ -218,18 +219,24 @@ export async function explicar(campo, ctx) {
 
     case "orientation": {
       const hoja = valor.startsWith("horizontal") ? "horizontal" : "vertical";
-      const que = cfg.printForm === "doble-cara" ? `La hoja se pasa ${PASO[valor]}` : "Cómo se coloca tu PDF en la hoja";
+      const comoHoja = (h) => (h === "horizontal" ? "tumbada" : "de pie");
+      const base = hoja === "horizontal" ? "La hoja tumbada, más ancha que alta" : "La hoja de pie, más alta que ancha, como un folio normal";
+      const que = cfg.printForm === "doble-cara" ? `${base}. Para leer la otra cara, se pasa ${PASO[valor]}` : base;
       const nombre = NOMBRE.orientation[valor];
       if (!hay || !r) return salida(nombre, que, "info", sinPdf);
-      if (r.fraccionApaisadas > 0.4 && r.fraccionApaisadas < 0.6) return salida(nombre, que, "info", "Tu PDF mezcla páginas verticales y apaisadas: cada una se ajusta a la hoja.");
+      if (r.fraccionApaisadas > 0.4 && r.fraccionApaisadas < 0.6) return salida(nombre, que, "info", "Tu PDF tiene páginas de pie y tumbadas: cada una se ajusta sola a la hoja.");
       const apaisado = r.fraccionApaisadas >= 0.6;
       const ideal = hojaIdeal(apaisado, cfg.pagesPerSide);
       const n = parseInt(cfg.pagesPerSide, 10);
-      const tipoPdf = apaisado ? "apaisado" : "vertical";
-      if (ideal === hoja) return salida(nombre, que, "bien", `Tu PDF es ${tipoPdf}${n > 1 ? ` y van ${n} por cara` : ""}: encaja perfecto.`);
+      const paginas = apaisado ? "tumbadas (más anchas que altas)" : "de pie (más altas que anchas)";
+      if (ideal === hoja) {
+        return salida(nombre, que, "bien", n > 1 ? `Con ${n} páginas en cada cara, así caben bien y se aprovecha toda la hoja.` : `Las páginas de tu PDF son ${paginas}: así encajan perfectas en la hoja.`);
+      }
       const valorIdeal = ideal === "horizontal" ? "horizontal-abajo-arriba" : "vertical-derecha-izquierda";
-      return salida(nombre, que, "mejor", `Tu PDF es ${tipoPdf}${n > 1 ? ` y van ${n} por cara` : ""}: en hoja ${hoja} ${n === 1 ? "saldría girado y más pequeño" : "cada página saldría más pequeña"}.`,
-        { etiqueta: `Hoja ${ideal}`, accion: cambiarA("orientation", valorIdeal) });
+      return salida(nombre, que, "mejor", n > 1
+        ? `Con ${n} páginas en cada cara, en la hoja ${comoHoja(hoja)} cada página saldría más pequeña de lo necesario.`
+        : `Las páginas de tu PDF son ${paginas}: en la hoja ${comoHoja(hoja)} saldrían giradas y más pequeñas.`,
+      { etiqueta: `Hoja ${ideal} (${comoHoja(ideal)})`, accion: cambiarA("orientation", valorIdeal) });
     }
 
     case "pagesPerSide": {
@@ -237,17 +244,17 @@ export async function explicar(campo, ctx) {
       const n = parseInt(valor, 10);
       const que = QUE.pagesPerSide[valor];
       if (!hay || !r) return salida(nombre, que, "info", n > 1 ? "Sube tu PDF y te digo si se leerá bien." : sinPdf);
-      if (!r.letra) return salida(nombre, que, "info", n > 1 ? "No puedo medir la letra de tu PDF: revisa que se vea bien." : "Tu PDF sale a su tamaño.");
+      if (!r.letra) return salida(nombre, que, "info", n > 1 ? "No puedo medir la letra de tu PDF: saldrá más pequeña, mira que se lea bien." : "Cada página sale a tamaño completo, como en tu PDF.");
       const esc0 = escalaPagina(valor, cfg.paperSize, r.anchoPt, r.altoPt) ?? (n === 4 ? 0.5 : n === 2 ? 0.707 : 1);
       const letra = r.letra * Math.min(1, esc0);
-      if (n === 1) return salida(nombre, que, "bien", `Tu letra sale a su tamaño (unos ${pt(letra)} pt): cómoda de leer.`);
+      if (n === 1) return salida(nombre, que, "bien", "La letra sale del mismo tamaño que en tu PDF: cómoda de leer.");
       if (letra < 6.5) {
         const menos = n === 4 ? (cfg.orientation.startsWith("horizontal") ? "2_horizontal" : "2_vertical") : (cfg.orientation.startsWith("horizontal") ? "1_horizontal" : "1_vertical");
-        return salida(nombre, que, "mejor", `La letra quedaría a unos ${pt(letra)} pt: demasiado pequeña para leer a gusto.`,
-          { etiqueta: `${n === 4 ? 2 : 1} por cara`, accion: cambiarA("pagesPerSide", menos) });
+        return salida(nombre, que, "mejor", "La letra saldría muy pequeña, más que la de un periódico: costaría leerla.",
+          { etiqueta: n === 4 ? "2 páginas por cara" : "1 página por cara", accion: cambiarA("pagesPerSide", menos) });
       }
-      if (letra < 8) return salida(nombre, que, "info", `La letra quedaría a unos ${pt(letra)} pt: se lee, pero justa.`);
-      return salida(nombre, que, "bien", `La letra quedaría a unos ${pt(letra)} pt: se lee bien.`);
+      if (letra < 8) return salida(nombre, que, "info", "La letra saldría pequeña: se lee, pero hay que mirarla de cerca.");
+      return salida(nombre, que, "bien", "La letra saldría algo más pequeña que en tu PDF, pero se lee bien.");
     }
 
     case "finishType": {

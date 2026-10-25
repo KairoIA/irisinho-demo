@@ -16,20 +16,22 @@ const NOMBRES = {
   printForm: { "una-cara": "Una cara", "doble-cara": "Doble cara" },
   finishType: { "sin-acabado": "Sin acabado", grapado: "Grapado", "dos-taladros": "Dos taladros", "cuatro-taladros": "Cuatro taladros", plastificado: "Plastificado", encuadernado: "Espiral" },
 };
-// Lo que dice Irisinho en su bocadillo encima de cada sección: de qué va, corto y en positivo (cabe en dos líneas).
+// Lo que dice Irisinho en su bocadillo encima de cada sección: qué elige el cliente ahí, claro y completo (25-oct, Javi:
+// «que diga que tiene que elegir uno; que explique bien lo que está eligiendo en cada sección»). El hueco crece si el
+// texto ocupa más líneas.
 const GLOBO = {
   subida: "¡Hola! Sube tu PDF y lo dejamos perfecto juntos",
   leyendo: "Dame un segundo, estoy leyendo tu PDF…",
   listo: "¡Ya lo he leído! Vamos paso a paso",
-  paperSize: "Primero, el tamaño de la hoja",
+  paperSize: "Primero, el tamaño de la hoja: elige A4 o A3",
   paperType: "Ahora el papel: cuantos más gramos, más grueso",
-  printType: "¿Color o blanco y negro? Te digo qué luce más",
-  printForm: "¿Por una cara o por las dos?",
-  orientation: "¿Cómo va la hoja? De pie o tumbada",
-  pagesPerSide: "¿Cuántas páginas de tu PDF por cara?",
-  finishType: "Y el acabado: sueltas, grapa, espiral…",
+  printType: "¿Color o blanco y negro? Te digo cuál luce más con tu archivo",
+  printForm: "¿Cómo quieres imprimir tu archivo: solo por delante o por las dos caras?",
+  orientation: "¿Cómo va la hoja: de pie (vertical) o tumbada (horizontal)?",
+  pagesPerSide: "¿Una página de tu PDF en cada cara del folio, o varias juntas y más pequeñas?",
+  finishType: "¿Qué acabado quieres? Hojas sueltas, grapadas, en espiral…",
   encuadernacion: "¡Elige los colores de tu espiral!",
-  final: "¡Listo para imprimir!",
+  final: "¡Listo para imprimir! Repasa tu pedido",
 };
 const MARCA = { bien: "✓", mejor: "!", info: "i" };
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -60,9 +62,11 @@ export class Guia {
     const a = this.ia.estado?.archivos || [];
     return a.reduce((m, x) => (!m || x.hojas > m.hojas ? x : m), null);
   }
-  // Alto del escenario de Irisinho: lo justo para que quepa él (y su bocadillo a su lado).
-  altoEscenario() {
-    return Math.round(this.ia.t * 0.9);
+  // Alto del escenario de Irisinho: lo justo para que quepan él y su bocadillo al lado (el bocadillo manda si es alto).
+  altoEscenario(texto, ancho) {
+    const t = this.ia.t;
+    const h = texto && ancho ? this.ia.medirGlobo(texto, ancho) : 0;
+    return Math.round(Math.max(t * 0.9, h + 12));
   }
 
   // ------------------------------------------------------------------ navegación
@@ -117,8 +121,9 @@ export class Guia {
   }
 
   // ------------------------------------------------------------------ lo que dice la página
+  // Al subir un PDF (o tocar un ejemplo, más abajo), la vista sube deslizando hasta Irisinho, que lo está leyendo.
   alSubirArchivo() {
-    if (this.activa && ["subida", "listo", "leyendo"].includes(this.paso)) this.ir("leyendo", { desplazar: false });
+    if (this.activa && ["subida", "listo", "leyendo"].includes(this.paso)) this.ir("leyendo", { desplazar: true });
   }
   alTerminarAnalisis() {
     if (!this.activa) return;
@@ -157,17 +162,20 @@ export class Guia {
     const r = mayor ? ia.analisis.get(mayor.id) : null;
     const pasoFinal = this.pasos().at(-1);
 
+    // Bienvenida, lectura y «ya lo he leído»: encima de «Subir documentos», con Irisinho y su bocadillo arriba (Javi,
+    // 25-oct: «Irisinho con su bocadillo, debajo "hola, soy Irisinho", luego subir documentos y más abajo los ejemplos»).
     if (this.paso === "subida") {
       const otro = e.carrito?.lineas?.length > 0;
       return {
         titulo: otro ? "¿Otro documento?" : "¡Hola! Soy Irisinho",
-        cuerpo: otro ? "Súbelo y lo configuramos igual, paso a paso. O ve al carrito para pagar."
-          : "Te ayudo a elegir cada opción para que tu PDF quede perfecto. Súbelo aquí arriba o prueba con un ejemplo.",
-        ancla: "subida", pose: "saluda", botones: [],
+        cuerpo: otro ? "Súbelo aquí debajo y lo configuramos igual, paso a paso. O ve al carrito para pagar."
+          : "Sube tu PDF aquí debajo y te ayudo a elegir cada opción para que quede perfecto. ¿No tienes uno a mano? Prueba con un ejemplo, un poco más abajo.",
+        ancla: "subida", antes: true, pose: "saluda", botones: [],
       };
     }
     if (this.paso === "leyendo") {
-      return { titulo: "Leyendo tu PDF…", cuerpo: "Miro el tamaño, las páginas, el color y la letra.", ancla: "archivos", pose: "lupa", botones: [] };
+      const nombre = e.archivos?.at(-1)?.nombre;
+      return { titulo: "Leyendo tu PDF…", cuerpo: `${nombre ? `<b>${esc(nombre)}</b><br>` : ""}Miro el tamaño, las páginas, el color y la letra.`, ancla: "subida", antes: true, pose: "lupa", botones: [] };
     }
     if (this.paso === "listo") {
       const n = mayor?.paginas || 0;
@@ -182,7 +190,7 @@ export class Guia {
       return {
         titulo: "¡Ya he leído tu PDF!",
         cuerpo: `<b>${esc(mayor?.nombre || "")}</b>${varios}<div class="chips">${chips.map((c) => `<span class="chip">${esc(c)}</span>`).join("")}</div>Ahora vamos sección por sección y te digo qué le queda mejor.`,
-        ancla: "archivos", pose: "celebra",
+        ancla: "subida", antes: true, pose: "celebra",
         botones: [{ etiqueta: "Empezar →", principal: true, accion: () => this.siguiente() }],
       };
     }
@@ -212,7 +220,7 @@ export class Guia {
         titulo: "¡Todo listo!",
         cuerpo: `<div class="chips">${resumen.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}</div>`
           + `<div class="total">Total: <b>${euros(tot)}</b>${e.carrito?.revision ? " <span>+ 1,90 € de revisión</span>" : ""}</div>${extra}`,
-        ancla: pasoFinal, pose: "celebra", botones, cuenta: "Último paso", progreso: 1,
+        ancla: pasoFinal, junto: true, pose: "celebra", botones, cuenta: "Último paso", progreso: 1,
       };
     }
 
@@ -272,6 +280,16 @@ export class Guia {
       precioCon: (c) => ia.precioCon(c), diferencia: (a, b) => ia.diferencia(a, b), euros: this.u.euros, esc: this.u.esc,
     };
   }
+  // Mientras el cliente lee un paso, ya pide a la tienda los precios que necesitará el siguiente (quedan guardados): al
+  // pulsar «Siguiente» el paso nuevo sale al momento, sin quedarse esperando a la calculadora (hasta 1,8 s medido).
+  precargar() {
+    const e = this.ia.estado;
+    if (!e?.archivos?.length) return;
+    const p = this.pasos();
+    const sig = this.paso === "listo" ? p[0] : p[p.indexOf(this.paso) + 1];
+    if (!sig || sig === "encuadernacion") return;
+    explicar(sig, this.ctx({ campo: sig, valor: e.config[sig] })).catch(() => {});
+  }
   async esperarPrecio() {
     const t0 = Date.now();
     for (;;) {
@@ -283,7 +301,7 @@ export class Guia {
   }
 
   // ------------------------------------------------------------------ pintar el paso
-  async pintar({ desplazar = false } = {}) {
+  async pintar({ desplazar = false, inmediato = false } = {}) {
     const turno = ++this.turno;
     if (!this.puedeVerse()) {
       if (this.ia.actual?.guia && !this.ia.chat.abierto) this.ocultar();
@@ -310,9 +328,20 @@ export class Guia {
         <button type="button" class="enlace" data-nav="solo">Prefiero hacerlo solo</button>
       </div>`;
     for (const b of [ia.bocadillo, ia.hoja]) { b.hidden = true; b.classList.remove("visible"); }
-    const caja = ponerTarjeta(c.ancla || "subida", html);
+    const ancla = c.ancla || "subida";
+    // Sin desplazar, lo que toca el cliente no se mueve; al cargar la página no hay nada que compensar.
+    const fijar = !desplazar && !inmediato;
+    const caja = ponerTarjeta(ancla, html, { antes: !!c.antes, fijar });
     if (!caja) return;
-    ponerEscenario(c.ancla || "subida", this.altoEscenario());
+    // El hueco: encima del bloque, o (bienvenida, lectura y resumen) justo encima de la tarjeta. Su alto, a la medida del
+    // bocadillo de este paso.
+    const junto = !!(c.antes || c.junto);
+    const st = ponerEscenario(ancla, this.altoEscenario(), { junto, fijar, inmediato });
+    const texto = GLOBO[this.paso];
+    if (st && texto) {
+      const alto = this.altoEscenario(texto, st.getBoundingClientRect().width);
+      if (alto !== parseFloat(st.style.height)) ponerEscenario(ancla, alto, { junto, fijar, inmediato });
+    }
     caja.querySelector(".cerrar").addEventListener("click", () => this.pausar());
     for (const b of caja.querySelectorAll("[data-b]")) b.addEventListener("click", () => c.botones[Number(b.dataset.b)].accion());
     caja.querySelector("[data-nav='atras']")?.addEventListener("click", () => this.atras());
@@ -341,9 +370,10 @@ export class Guia {
     ia.mascota.classList.remove("oculto");
     ia.colocar(true);
     if (desplazar) {
-      ia.enCaminoHasta = Date.now() + 1100;
-      requestAnimationFrame(() => verTarjeta(c.ancla || "subida", { abajo: ia.carritoAbierto() ? 0 : ia.barra() }));
+      ia.enCaminoHasta = Date.now() + 1700;
+      requestAnimationFrame(() => verTarjeta(ancla, { abajo: ia.carritoAbierto() ? 0 : ia.barra() }));
     }
     if (!this.u.esMovil()) setTimeout(() => caja.querySelector(".btn.principal:not([disabled])")?.focus({ preventScroll: true }), 80);
+    setTimeout(() => { if (turno === this.turno) this.precargar(); }, 400);
   }
 }
